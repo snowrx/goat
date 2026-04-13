@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io"
 	"log"
 	"net"
 	"net/netip"
@@ -68,7 +69,6 @@ func handleConnection(conn *net.TCPConn) {
 		return
 	}
 
-	log.Printf("Accepted connection from %s -> %s", clientAP, targetAP)
 	proxyConn, err := net.DialTCP("tcp", nil, net.TCPAddrFromAddrPort(*targetAP))
 	if err != nil {
 		log.Printf("Failed to dial proxy: %s", err)
@@ -88,21 +88,8 @@ func handleConnection(conn *net.TCPConn) {
 func relay(wg *sync.WaitGroup, src *net.TCPConn, dst *net.TCPConn) {
 	defer dst.Close()
 	defer wg.Done()
-
-	buf := make([]byte, BUFFER_SIZE)
-	for {
-		recv, err := src.Read(buf)
-		if err != nil {
-			return
-		}
-
-		pos := 0
-		for pos < recv {
-			sent, err := dst.Write(buf[pos:recv])
-			if err != nil {
-				return
-			}
-			pos += sent
-		}
+	_, err := io.CopyBuffer(dst, src, make([]byte, BUFFER_SIZE))
+	if err != nil {
+		log.Printf("Failed to copy: %s", err)
 	}
 }
