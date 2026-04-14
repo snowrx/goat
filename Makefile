@@ -18,10 +18,10 @@ After=network.target\n\n\
 [Service]\n\
 Type=simple\n\
 ExecStart=$(DEST)/$(APP_NAME)\n\
-Restart=always\n\
+Restart=on-failure\n\
 WorkingDirectory=$(DEST)\n\
 DynamicUser=yes\n\
-ProtectSystem=full\n\
+ProtectSystem=strict\n\
 StateDirectory=$(APP_NAME)\n\n\
 [Install]\n\
 WantedBy=multi-user.target" | sudo tee $(SERVICE_PATH) > /dev/null
