@@ -32,6 +32,7 @@ func main() {
 		return
 	}
 }
+
 func handleListener(ln *net.TCPListener) error {
 	defer ln.Close()
 
@@ -43,6 +44,7 @@ func handleListener(ln *net.TCPListener) error {
 		go handleConnection(conn)
 	}
 }
+
 func handleConnection(conn *net.TCPConn) {
 	defer conn.Close()
 
@@ -88,6 +90,7 @@ func handleConnection(conn *net.TCPConn) {
 func relay(wg *sync.WaitGroup, src *net.TCPConn, dst *net.TCPConn) {
 	defer dst.Close()
 	defer wg.Done()
+
 	_, err := io.CopyBuffer(dst, src, make([]byte, BUFFER_SIZE))
 	if err != nil {
 		log.Printf("Failed to copy: %s", err)
