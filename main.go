@@ -25,21 +25,12 @@ func main() {
 		log.Fatalf("%s", err)
 		return
 	}
-
-	err = handleListener(ln)
-	if err != nil {
-		log.Fatalf("%s", err)
-		return
-	}
-}
-
-func handleListener(ln *net.TCPListener) error {
 	defer ln.Close()
 
 	for {
 		conn, err := ln.AcceptTCP()
 		if err != nil {
-			return err
+			log.Fatalf("%s", err)
 		}
 		go handleConnection(conn)
 	}
