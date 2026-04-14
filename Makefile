@@ -22,6 +22,7 @@ Restart=on-failure\n\
 WorkingDirectory=$(DEST)\n\
 DynamicUser=yes\n\
 ProtectSystem=strict\n\
+MemoryHigh=50%\n\
 StateDirectory=$(APP_NAME)\n\n\
 [Install]\n\
 WantedBy=multi-user.target" | sudo tee $(SERVICE_PATH) > /dev/null
