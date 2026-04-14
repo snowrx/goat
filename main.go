@@ -16,19 +16,19 @@ const (
 func main() {
 	lnAddr, err := net.ResolveTCPAddr("tcp", LISTEN_PORT)
 	if err != nil {
-		log.Fatalln("Failed to parse listen addr")
+		log.Fatalf("%s", err)
 		return
 	}
 
 	ln, err := net.ListenTCP("tcp", lnAddr)
 	if err != nil {
-		log.Fatalln("Failed to open listener")
+		log.Fatalf("%s", err)
 		return
 	}
 
 	err = handleListener(ln)
 	if err != nil {
-		log.Fatalln("Failed to handle listener")
+		log.Fatalf("%s", err)
 		return
 	}
 }
@@ -50,30 +50,30 @@ func handleConnection(conn *net.TCPConn) {
 
 	clientAP, err := netip.ParseAddrPort(conn.RemoteAddr().String())
 	if err != nil {
-		log.Printf("Failed to parse client addr: %s", err)
+		log.Printf("ERROR: %s", err)
 		return
 	}
 
 	localAP, err := netip.ParseAddrPort(conn.LocalAddr().String())
 	if err != nil {
-		log.Printf("Failed to parse local addr: %s", err)
+		log.Printf("ERROR: %s", err)
 		return
 	}
 
 	targetAP, err := GetOriginalDst(conn)
 	if err != nil {
-		log.Printf("Failed to get original dst: %s", err)
+		log.Printf("ERROR: %s", err)
 		return
 	}
 
 	if *targetAP == localAP {
-		log.Printf("Rejected direct connection from %s", clientAP)
+		log.Printf("REJECTED: %s", clientAP)
 		return
 	}
 
 	proxyConn, err := net.DialTCP("tcp", nil, net.TCPAddrFromAddrPort(*targetAP))
 	if err != nil {
-		log.Printf("Failed to dial proxy: %s", err)
+		log.Printf("ERROR: %s", err)
 		return
 	}
 	defer proxyConn.Close()
@@ -82,9 +82,9 @@ func handleConnection(conn *net.TCPConn) {
 	wg.Add(2)
 	go relay(&wg, conn, proxyConn)
 	go relay(&wg, proxyConn, conn)
-	log.Printf("Relaying %s <-> %s", clientAP, targetAP)
+	log.Printf("OPENED: %50s <-> %50s", clientAP, targetAP)
 	wg.Wait()
-	log.Printf("Relay closed %s <-> %s", clientAP, targetAP)
+	log.Printf("CLOSED: %50s <-> %50s", clientAP, targetAP)
 }
 
 func relay(wg *sync.WaitGroup, src *net.TCPConn, dst *net.TCPConn) {
@@ -93,6 +93,6 @@ func relay(wg *sync.WaitGroup, src *net.TCPConn, dst *net.TCPConn) {
 
 	_, err := io.CopyBuffer(dst, src, make([]byte, BUFFER_SIZE))
 	if err != nil {
-		log.Printf("Failed to copy: %s", err)
+		log.Printf("ERROR: %s", err)
 	}
 }
