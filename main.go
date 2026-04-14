@@ -10,7 +10,7 @@ import (
 
 const (
 	LISTEN_PORT = ":40960"
-	BUFFER_SIZE = 1 << 24
+	BUFFER_SIZE = 1 << 20
 )
 
 func main() {
