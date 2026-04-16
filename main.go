@@ -9,10 +9,7 @@ import (
 	"sync"
 )
 
-const (
-	LISTEN_PORT = ":40960"
-	BUFFER_SIZE = 1 << 20
-)
+const LISTEN_PORT = ":40960"
 
 func main() {
 	lnAddr, err := net.ResolveTCPAddr("tcp", LISTEN_PORT)
@@ -86,7 +83,7 @@ func relay(wg *sync.WaitGroup, label string, src *net.TCPConn, dst *net.TCPConn)
 	defer src.CloseRead()
 	defer dst.CloseWrite()
 
-	_, err := io.CopyBuffer(dst, src, make([]byte, BUFFER_SIZE))
+	_, err := io.Copy(dst, src)
 	if err != nil {
 		logger("ERROR", label)
 		logger("ERROR", err.Error())
