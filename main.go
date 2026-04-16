@@ -86,7 +86,6 @@ func relay(wg *sync.WaitGroup, label string, src *net.TCPConn, dst *net.TCPConn)
 	_, err := io.Copy(dst, src)
 	if err != nil {
 		logger("ERROR", label)
-		logger("ERROR", err.Error())
 	}
 }
 
