@@ -21,6 +21,7 @@ func GetOriginalDst(conn *net.TCPConn) (*netip.AddrPort, error) {
 
 	var res netip.AddrPort
 	var opErr error
+
 	err = rawConn.Control(func(fd uintptr) {
 		// v4 or mapped
 		if v4 != nil {
@@ -49,7 +50,11 @@ func GetOriginalDst(conn *net.TCPConn) (*netip.AddrPort, error) {
 		}
 	})
 
-	if err != nil || opErr != nil {
+	if err != nil {
+		return nil, err
+	}
+
+	if opErr != nil {
 		return nil, opErr
 	}
 
