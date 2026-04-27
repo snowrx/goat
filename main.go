@@ -27,7 +27,7 @@ func main() {
 	for {
 		conn, err := ln.AcceptTCP()
 		if err != nil {
-			log.Fatalf("Failed to accept connection: %s", err)
+			log.Printf("Failed to accept connection: %s", err)
 			continue
 		}
 		go handleConnection(conn)
