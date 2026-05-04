@@ -80,16 +80,14 @@ func handleConnection(conn *net.TCPConn) {
 
 func relay(wg *sync.WaitGroup, label string, src *net.TCPConn, dst *net.TCPConn) {
 	defer wg.Done()
+	defer dst.CloseWrite()
+	defer src.CloseRead()
 
 	_, err := io.Copy(dst, src)
 	if err != nil {
 		logger("ERROR", label)
 		dst.Close()
-		return
 	}
-
-	src.CloseRead()
-	dst.CloseWrite()
 }
 
 func logger(subject string, message string) {
