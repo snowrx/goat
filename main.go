@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/netip"
 	"sync"
+	"time"
 )
 
 const LISTEN_PORT = ":40960"
@@ -36,6 +37,8 @@ func main() {
 
 func handleConnection(conn *net.TCPConn) {
 	defer conn.Close()
+
+	conn.SetDeadline(time.Now().Add(24 * time.Hour))
 
 	clientAP, err := netip.ParseAddrPort(conn.RemoteAddr().String())
 	if err != nil {
