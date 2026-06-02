@@ -8,9 +8,12 @@ import (
 	"net/netip"
 	"sync"
 	"time"
+
+	"github.com/sagernet/tfo-go"
 )
 
 const LISTEN_PORT = ":40960"
+const BUF_SIZE = 1 << 12
 
 func main() {
 	lnAddr, err := net.ResolveTCPAddr("tcp", LISTEN_PORT)
@@ -18,7 +21,7 @@ func main() {
 		log.Fatalf("Failed to resolve listener endpoint: %s", err)
 	}
 
-	ln, err := net.ListenTCP("tcp", lnAddr)
+	ln, err := tfo.ListenTCP("tcp", lnAddr)
 	if err != nil {
 		log.Fatalf("Failed to create listener: %s", err)
 	}
@@ -38,7 +41,8 @@ func main() {
 func handleConnection(conn *net.TCPConn) {
 	defer conn.Close()
 
-	conn.SetDeadline(time.Now().Add(24 * time.Hour))
+	// prepare
+	buf := make([]byte, BUF_SIZE)
 
 	clientAP, err := netip.ParseAddrPort(conn.RemoteAddr().String())
 	if err != nil {
@@ -57,39 +61,54 @@ func handleConnection(conn *net.TCPConn) {
 		logger("ERROR", err.Error())
 		return
 	}
-	label_up := fmt.Sprintf("%50s -> %50s", clientAP, targetAP)
-	label_down := fmt.Sprintf("%50s <- %50s", clientAP, targetAP)
+	label := fmt.Sprintf("%50s <> %50s", clientAP, targetAP)
 
 	if *targetAP == localAP {
-		logger("REJECT", label_up)
+		logger("REJECT", label)
 		return
 	}
 
-	proxyConn, err := net.DialTCP("tcp", nil, net.TCPAddrFromAddrPort(*targetAP))
+	// tfo
+	conn.SetReadDeadline(time.Now().Add(2 * time.Millisecond))
+	n, _ := conn.Read(buf)
+	conn.SetReadDeadline(time.Time{})
+	firstBytes := buf[:n]
+	if n > 0 {
+		logger(fmt.Sprintf("TFO:%4d", n), label)
+	}
+
+	proxyConn, err := tfo.DialTCP("tcp", nil, net.TCPAddrFromAddrPort(*targetAP), firstBytes)
 	if err != nil {
 		logger("ERROR", err.Error())
 		return
 	}
 	defer proxyConn.Close()
 
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go relay(&wg, label_up, conn, proxyConn)
-	go relay(&wg, label_down, proxyConn, conn)
-	logger("OPEN", label_up)
-	wg.Wait()
-	logger("CLOSE", label_up)
+	// run
+	logger("OPEN", label)
+	relay(conn, proxyConn)
+	logger("CLOSE", label)
 }
 
-func relay(wg *sync.WaitGroup, label string, src *net.TCPConn, dst *net.TCPConn) {
-	defer wg.Done()
-	defer dst.CloseWrite()
-	defer src.CloseRead()
+func relay(client, upstream net.Conn) {
+	var wg sync.WaitGroup
 
-	_, err := io.Copy(dst, src)
-	if err != nil {
-		logger("ERROR", label)
-		dst.Close()
+	wg.Go(func() {
+		io.Copy(upstream, client)
+		halfCloseWrite(upstream)
+	})
+
+	wg.Go(func() {
+		io.Copy(client, upstream)
+		halfCloseWrite(client)
+	})
+
+	wg.Wait()
+}
+
+func halfCloseWrite(conn net.Conn) {
+	if tc, ok := conn.(*net.TCPConn); ok {
+		tc.CloseWrite()
 	}
 }
 
