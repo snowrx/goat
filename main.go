@@ -13,7 +13,7 @@ import (
 )
 
 const LISTEN_PORT = ":40960"
-const BUF_SIZE = 1 << 12
+const BUF_SIZE = 1 << 14
 
 func main() {
 	lnAddr, err := net.ResolveTCPAddr("tcp", LISTEN_PORT)
@@ -73,9 +73,6 @@ func handleConnection(conn *net.TCPConn) {
 	n, _ := conn.Read(buf)
 	conn.SetReadDeadline(time.Time{})
 	firstBytes := buf[:n]
-	if n > 0 {
-		logger(fmt.Sprintf("TFO:%4d", n), label)
-	}
 
 	proxyConn, err := tfo.DialTCP("tcp", nil, net.TCPAddrFromAddrPort(*targetAP), firstBytes)
 	if err != nil {
@@ -85,9 +82,8 @@ func handleConnection(conn *net.TCPConn) {
 	defer proxyConn.Close()
 
 	// run
-	logger("OPEN", label)
+	logger(fmt.Sprintf("TFO: %5d", n), label)
 	relay(conn, proxyConn)
-	logger("CLOSE", label)
 }
 
 func relay(client, upstream net.Conn) {
