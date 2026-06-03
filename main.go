@@ -74,6 +74,7 @@ func handleConnection(conn *net.TCPConn) {
 	conn.SetReadDeadline(time.Time{})
 	firstBytes := buf[:n]
 
+	start := time.Now()
 	proxyConn, err := tfo.DialTCP("tcp", nil, net.TCPAddrFromAddrPort(*targetAP), firstBytes)
 	if err != nil {
 		logger("ERROR", err.Error())
@@ -82,7 +83,7 @@ func handleConnection(conn *net.TCPConn) {
 	defer proxyConn.Close()
 
 	// run
-	logger(fmt.Sprintf("TFO: %5d", n), label)
+	logger(fmt.Sprintf("%5d,%4d", n, time.Since(start).Milliseconds()), label)
 	relay(conn, proxyConn)
 }
 
