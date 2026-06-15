@@ -8,12 +8,9 @@ import (
 	"net/netip"
 	"sync"
 	"time"
-
-	"github.com/sagernet/tfo-go"
 )
 
 const LISTEN_PORT = ":40960"
-const BUF_SIZE = 1 << 14
 
 func main() {
 	lnAddr, err := net.ResolveTCPAddr("tcp", LISTEN_PORT)
@@ -21,7 +18,7 @@ func main() {
 		log.Fatalf("Failed to resolve listener endpoint: %s", err)
 	}
 
-	ln, err := tfo.ListenTCP("tcp", lnAddr)
+	ln, err := net.ListenTCP("tcp", lnAddr)
 	if err != nil {
 		log.Fatalf("Failed to create listener: %s", err)
 	}
@@ -41,50 +38,37 @@ func main() {
 func handleConnection(conn *net.TCPConn) {
 	defer conn.Close()
 
-	// prepare
-	buf := make([]byte, BUF_SIZE)
-
 	clientAP, err := netip.ParseAddrPort(conn.RemoteAddr().String())
 	if err != nil {
 		logger("ERROR", err.Error())
 		return
 	}
-
 	localAP, err := netip.ParseAddrPort(conn.LocalAddr().String())
 	if err != nil {
 		logger("ERROR", err.Error())
 		return
 	}
-
 	targetAP, err := GetOriginalDst(conn)
 	if err != nil {
 		logger("ERROR", err.Error())
 		return
 	}
 	label := fmt.Sprintf("%50s <> %50s", clientAP, targetAP)
-
 	if *targetAP == localAP {
 		logger("REJECT", label)
 		return
 	}
-
-	// tfo
-	conn.SetReadDeadline(time.Now().Add(2 * time.Millisecond))
-	n, _ := conn.Read(buf)
-	conn.SetReadDeadline(time.Time{})
-	firstBytes := buf[:n]
-
 	start := time.Now()
-	proxyConn, err := tfo.DialTCP("tcp", nil, net.TCPAddrFromAddrPort(*targetAP), firstBytes)
+	proxyConn, err := net.DialTCP("tcp", nil, net.TCPAddrFromAddrPort(*targetAP))
 	if err != nil {
 		logger("ERROR", err.Error())
 		return
 	}
 	defer proxyConn.Close()
 
-	// run
-	logger(fmt.Sprintf("%5d,%4d", n, time.Since(start).Milliseconds()), label)
+	logger(fmt.Sprintf("OPEN %4d", time.Since(start).Milliseconds()), label)
 	relay(conn, proxyConn)
+	logger("CLOSE", label)
 }
 
 func relay(client, upstream net.Conn) {
@@ -94,7 +78,6 @@ func relay(client, upstream net.Conn) {
 		io.Copy(upstream, client)
 		halfCloseWrite(upstream)
 	})
-
 	wg.Go(func() {
 		io.Copy(client, upstream)
 		halfCloseWrite(client)
