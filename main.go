@@ -93,5 +93,5 @@ func halfCloseWrite(conn net.Conn) {
 }
 
 func logger(subject string, message string) {
-	log.Printf("| %10s | %s", subject, message)
+	log.Printf("| %-10s | %s", subject, message)
 }
