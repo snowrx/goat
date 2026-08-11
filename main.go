@@ -11,6 +11,7 @@ import (
 )
 
 const LISTEN_PORT = ":40960"
+const CONN_LIFETIME = 24 * time.Hour
 
 func main() {
 	lnAddr, err := net.ResolveTCPAddr("tcp", LISTEN_PORT)
@@ -54,10 +55,12 @@ func handleConnection(conn *net.TCPConn) {
 		return
 	}
 	label := fmt.Sprintf("%50s <> %50s", clientAP, targetAP)
+
 	if *targetAP == localAP {
 		logger("REJECT", label)
 		return
 	}
+
 	start := time.Now()
 	proxyConn, err := net.DialTCP("tcp", nil, net.TCPAddrFromAddrPort(*targetAP))
 	if err != nil {
@@ -67,6 +70,8 @@ func handleConnection(conn *net.TCPConn) {
 	defer proxyConn.Close()
 
 	logger(fmt.Sprintf("OPEN %4d", time.Since(start).Milliseconds()), label)
+	proxyConn.SetDeadline(time.Now().Add(CONN_LIFETIME))
+	conn.SetDeadline(time.Now().Add(CONN_LIFETIME))
 	relay(conn, proxyConn)
 	logger("CLOSE", label)
 }
