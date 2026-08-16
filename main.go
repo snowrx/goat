@@ -15,7 +15,7 @@ import (
 const LISTEN_PORT = ":40960"
 const CONN_LIFETIME = 24 * time.Hour
 const TFO_SIZE = 1 << 12
-const TFO_WAIT_MS = 10
+const TFO_WAIT_MS = 4
 
 func main() {
 	lnAddr, err := net.ResolveTCPAddr("tcp", LISTEN_PORT)
