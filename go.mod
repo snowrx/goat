@@ -3,6 +3,7 @@ module main
 go 1.26.1
 
 require (
-	github.com/sagernet/tfo-go v0.0.0-20230816093905-5a5c285d44a6
-	golang.org/x/sys v0.11.0 // indirect
+	github.com/database64128/netx-go v0.1.1 // indirect
+	github.com/database64128/tfo-go/v2 v2.3.3
+	golang.org/x/sys v0.42.0 // indirect
 )

@@ -9,12 +9,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sagernet/tfo-go"
+	"github.com/database64128/tfo-go/v2"
 )
 
 const LISTEN_PORT = ":40960"
 const CONN_LIFETIME = 24 * time.Hour
-const TFO_SIZE = 1200
+const TFO_SIZE = 1 << 12
 const TFO_WAIT_MS = 10
 
 func main() {
