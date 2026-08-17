@@ -16,6 +16,7 @@ const LISTEN_PORT = ":40960"
 const CONN_LIFETIME = 24 * time.Hour
 const TFO_SIZE = 1200
 const TFO_WAIT_MS = 4
+const DEBUG = true
 
 func main() {
 	lnAddr, err := net.ResolveTCPAddr("tcp", LISTEN_PORT)
@@ -42,6 +43,7 @@ func main() {
 
 func handleConnection(conn *net.TCPConn) {
 	defer conn.Close()
+	accepted := time.Now()
 
 	clientAP, err := netip.ParseAddrPort(conn.RemoteAddr().String())
 	if err != nil {
@@ -59,6 +61,7 @@ func handleConnection(conn *net.TCPConn) {
 		return
 	}
 	label := fmt.Sprintf("%50s <> %50s", clientAP, targetAP)
+	parsed := time.Now()
 
 	if *targetAP == localAP {
 		logger("REJECT", label)
@@ -70,17 +73,23 @@ func handleConnection(conn *net.TCPConn) {
 	n, err := conn.Read(buf)
 	conn.SetReadDeadline(time.Time{})
 	buf = buf[:n]
+	received := time.Now()
 
-	start := time.Now()
 	proxyConn, err := tfo.DialTCP("tcp", nil, net.TCPAddrFromAddrPort(*targetAP), buf)
 	if err != nil {
 		logger("ERROR", err.Error())
 		return
 	}
 	defer proxyConn.Close()
+	opened := time.Now()
 
 	logger("OPEN", label)
-	logger(fmt.Sprintf("%4d/%4d", time.Since(start).Milliseconds(), n), label)
+	if DEBUG {
+		resolve_time := parsed.Sub(accepted).Microseconds()
+		receive_time := received.Sub(parsed).Microseconds()
+		open_time := opened.Sub(received).Microseconds()
+		logger("DEBUG", fmt.Sprintf("res: %6d us / recv: %6d us / open: %6d us / data: %4d B", resolve_time, receive_time, open_time, n))
+	}
 	proxyConn.SetDeadline(time.Now().Add(CONN_LIFETIME))
 	conn.SetDeadline(time.Now().Add(CONN_LIFETIME))
 	relay(conn, proxyConn)
