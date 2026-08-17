@@ -15,7 +15,7 @@ import (
 const LISTEN_PORT = ":40960"
 const CONN_LIFETIME = 24 * time.Hour
 const TFO_SIZE = 1200
-const TFO_WAIT_MS = 4
+const TFO_WAIT_MS = 8
 const DEBUG = true
 
 func main() {
@@ -85,10 +85,11 @@ func handleConnection(conn *net.TCPConn) {
 
 	logger("OPEN", label)
 	if DEBUG {
+		total_time := opened.Sub(accepted).Microseconds()
 		resolve_time := parsed.Sub(accepted).Microseconds()
 		receive_time := received.Sub(parsed).Microseconds()
 		open_time := opened.Sub(received).Microseconds()
-		logger("DEBUG", fmt.Sprintf("res: %6d us / recv: %6d us / open: %6d us / data: %4d B", resolve_time, receive_time, open_time, n))
+		logger("DEBUG", fmt.Sprintf("time: %6d us (res: %3d / recv: %4d / open: %6d) / data: %4d B", total_time, resolve_time, receive_time, open_time, n))
 	}
 	proxyConn.SetDeadline(time.Now().Add(CONN_LIFETIME))
 	conn.SetDeadline(time.Now().Add(CONN_LIFETIME))
