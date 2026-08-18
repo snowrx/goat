@@ -14,8 +14,8 @@ import (
 
 const LISTEN_PORT = ":40960"
 const CONN_LIFETIME = 24 * time.Hour
-const TFO_SIZE = 1 << 12
-const TFO_WAIT_MS = 4
+const TFO_SIZE = 1200
+const TFO_WAIT_MS = 8
 const DEBUG = true
 
 func main() {
