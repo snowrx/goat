@@ -101,11 +101,21 @@ func relay(client, upstream net.Conn) {
 	var wg sync.WaitGroup
 
 	wg.Go(func() {
-		io.Copy(upstream, client)
+		_, err := io.Copy(upstream, client)
+		if err != nil {
+			upstream.Close()
+			client.Close()
+			return
+		}
 		halfCloseWrite(upstream)
 	})
 	wg.Go(func() {
-		io.Copy(client, upstream)
+		_, err := io.Copy(client, upstream)
+		if err != nil {
+			client.Close()
+			upstream.Close()
+			return
+		}
 		halfCloseWrite(client)
 	})
 
