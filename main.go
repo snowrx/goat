@@ -106,7 +106,6 @@ func relay(client, upstream net.Conn) {
 		if copyerr != nil || closeerr != nil {
 			upstream.Close()
 			client.Close()
-			return
 		}
 	})
 	wg.Go(func() {
@@ -115,7 +114,6 @@ func relay(client, upstream net.Conn) {
 		if copyerr != nil || closeerr != nil {
 			client.Close()
 			upstream.Close()
-			return
 		}
 	})
 
