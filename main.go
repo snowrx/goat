@@ -101,31 +101,32 @@ func relay(client, upstream net.Conn) {
 	var wg sync.WaitGroup
 
 	wg.Go(func() {
-		_, err := io.Copy(upstream, client)
-		if err != nil {
+		_, copyerr := io.Copy(upstream, client)
+		closeerr := halfCloseWrite(upstream)
+		if copyerr != nil || closeerr != nil {
 			upstream.Close()
 			client.Close()
 			return
 		}
-		halfCloseWrite(upstream)
 	})
 	wg.Go(func() {
-		_, err := io.Copy(client, upstream)
-		if err != nil {
+		_, copyerr := io.Copy(client, upstream)
+		closeerr := halfCloseWrite(client)
+		if copyerr != nil || closeerr != nil {
 			client.Close()
 			upstream.Close()
 			return
 		}
-		halfCloseWrite(client)
 	})
 
 	wg.Wait()
 }
 
-func halfCloseWrite(conn net.Conn) {
+func halfCloseWrite(conn net.Conn) error {
 	if tc, ok := conn.(*net.TCPConn); ok {
-		tc.CloseWrite()
+		return tc.CloseWrite()
 	}
+	return nil
 }
 
 func logger(subject string, message string) {
