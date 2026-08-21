@@ -45,21 +45,14 @@ func handleConnection(conn *net.TCPConn) {
 	defer conn.Close()
 	accepted := time.Now()
 
-	clientAP, err := netip.ParseAddrPort(conn.RemoteAddr().String())
-	if err != nil {
-		logger("ERROR", err.Error())
+	clientAP, cl_parse_err := netip.ParseAddrPort(conn.RemoteAddr().String())
+	localAP, lo_parse_err := netip.ParseAddrPort(conn.LocalAddr().String())
+	targetAP, tg_parse_err := GetOriginalDst(conn)
+	if cl_parse_err != nil || lo_parse_err != nil || tg_parse_err != nil {
+		logger("ERROR", "Failed to retrieve connection information")
 		return
 	}
-	localAP, err := netip.ParseAddrPort(conn.LocalAddr().String())
-	if err != nil {
-		logger("ERROR", err.Error())
-		return
-	}
-	targetAP, err := GetOriginalDst(conn)
-	if err != nil {
-		logger("ERROR", err.Error())
-		return
-	}
+
 	label := fmt.Sprintf("%50s <> %50s", clientAP, targetAP)
 	parsed := time.Now()
 
@@ -70,14 +63,14 @@ func handleConnection(conn *net.TCPConn) {
 
 	buf := make([]byte, TFO_SIZE)
 	conn.SetReadDeadline(time.Now().Add(TFO_WAIT_MS * time.Millisecond))
-	n, err := conn.Read(buf)
+	n, _ := conn.Read(buf)
 	conn.SetReadDeadline(time.Time{})
 	buf = buf[:n]
 	received := time.Now()
 
-	proxyConn, err := tfo.DialTCP("tcp", nil, net.TCPAddrFromAddrPort(*targetAP), buf)
-	if err != nil {
-		logger("ERROR", err.Error())
+	proxyConn, dial_err := tfo.DialTCP("tcp", nil, net.TCPAddrFromAddrPort(*targetAP), buf)
+	if dial_err != nil {
+		logger("ERROR", dial_err.Error())
 		return
 	}
 	defer proxyConn.Close()
@@ -106,6 +99,9 @@ func relay(client, upstream net.Conn) {
 		if copyerr != nil || closeerr != nil {
 			upstream.Close()
 			client.Close()
+			if DEBUG && copyerr != nil {
+				logger("DEBUG", fmt.Sprintf("%s", copyerr))
+			}
 		}
 	})
 	wg.Go(func() {
@@ -114,6 +110,9 @@ func relay(client, upstream net.Conn) {
 		if copyerr != nil || closeerr != nil {
 			client.Close()
 			upstream.Close()
+			if DEBUG && copyerr != nil {
+				logger("DEBUG", fmt.Sprintf("%s", copyerr))
+			}
 		}
 	})
 
