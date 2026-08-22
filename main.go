@@ -94,26 +94,25 @@ func relay(client, upstream net.Conn) {
 	var wg sync.WaitGroup
 
 	wg.Go(func() {
-		_, copyerr := io.Copy(upstream, client)
-		closeerr := halfCloseWrite(upstream)
-		if copyerr != nil || closeerr != nil {
+		// client -> upstream
+		if _, err := io.Copy(upstream, client); err != nil {
+			logger("ERROR_UL", err.Error())
 			upstream.Close()
 			client.Close()
-			if DEBUG && copyerr != nil {
-				logger("DEBUG", fmt.Sprintf("%s", copyerr))
-			}
+			return
 		}
+		halfCloseWrite(upstream)
 	})
+
 	wg.Go(func() {
-		_, copyerr := io.Copy(client, upstream)
-		closeerr := halfCloseWrite(client)
-		if copyerr != nil || closeerr != nil {
+		// upstream -> client
+		if _, err := io.Copy(client, upstream); err != nil {
+			logger("ERROR_DL", err.Error())
 			client.Close()
 			upstream.Close()
-			if DEBUG && copyerr != nil {
-				logger("DEBUG", fmt.Sprintf("%s", copyerr))
-			}
+			return
 		}
+		halfCloseWrite(client)
 	})
 
 	wg.Wait()
