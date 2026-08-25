@@ -95,27 +95,26 @@ func relay(client, upstream net.Conn) {
 
 	wg.Go(func() {
 		// client -> upstream
-		_, err := io.Copy(upstream, client)
-		if err == nil {
-			err = halfCloseWrite(upstream)
-		}
-		if err != nil {
-			logger("ERROR_UL", err.Error())
-			upstream.Close()
+		if _, err := io.Copy(upstream, client); err != nil {
+			logger("ERROR", "copy error in upload")
 			client.Close()
+			upstream.Close()
+			return
+		}
+		if err := halfCloseWrite(upstream); err != nil {
+			logger("ERROR", "close error in upload")
 		}
 	})
-
 	wg.Go(func() {
 		// upstream -> client
-		_, err := io.Copy(client, upstream)
-		if err == nil {
-			err = halfCloseWrite(client)
-		}
-		if err != nil {
-			logger("ERROR_DL", err.Error())
-			client.Close()
+		if _, err := io.Copy(client, upstream); err != nil {
+			logger("ERROR", "copy error in download")
 			upstream.Close()
+			client.Close()
+			return
+		}
+		if err := halfCloseWrite(client); err != nil {
+			logger("ERROR", "close error in download")
 		}
 	})
 
