@@ -13,7 +13,7 @@ import (
 )
 
 const LISTEN_PORT = ":40960"
-const CONN_LIFETIME = 24 * time.Hour
+const CONN_LIFETIME = 4 * time.Hour
 const TFO_SIZE = 1200
 const TFO_WAIT_MS = 2
 const DEBUG = true
