@@ -12,11 +12,12 @@ import (
 	"github.com/database64128/tfo-go/v2"
 )
 
-const LISTEN_PORT = ":40960"
-const CONN_LIFETIME = 4 * time.Hour
-const TFO_SIZE = 1200
-const TFO_WAIT_MS = 2
-const DEBUG = true
+const LISTEN_PORT string = ":40960"
+const CONN_LIFETIME time.Duration = 4 * time.Hour
+const TFO_SIZE uint16 = 1200
+const TFO_WAIT_MS uint16 = 2
+const DEBUG bool = true
+const LOCAL_RCVBUF_OVERRIDE int = 0x10000
 
 func main() {
 	lnAddr, err := net.ResolveTCPAddr("tcp", LISTEN_PORT)
@@ -36,6 +37,9 @@ func main() {
 		if err != nil {
 			log.Printf("Failed to accept connection: %s", err)
 			continue
+		}
+		if LOCAL_RCVBUF_OVERRIDE > 0 {
+			conn.SetReadBuffer(max(1<<16, min(1<<30, LOCAL_RCVBUF_OVERRIDE)))
 		}
 		go handleConnection(conn)
 	}
@@ -62,7 +66,7 @@ func handleConnection(conn *net.TCPConn) {
 	}
 
 	buf := make([]byte, TFO_SIZE)
-	conn.SetReadDeadline(time.Now().Add(TFO_WAIT_MS * time.Millisecond))
+	conn.SetReadDeadline(time.Now().Add(time.Duration(TFO_WAIT_MS) * time.Millisecond))
 	n, _ := conn.Read(buf)
 	conn.SetReadDeadline(time.Time{})
 	buf = buf[:n]
