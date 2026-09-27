@@ -17,7 +17,7 @@ const CONN_LIFETIME time.Duration = 4 * time.Hour
 const TFO_SIZE uint16 = 1200
 const TFO_WAIT_MS uint16 = 2
 const DEBUG bool = true
-const LOCAL_RCVBUF_OVERRIDE int = 0x10000
+const LOCAL_RCVBUF_OVERRIDE int = 0x100000
 
 func main() {
 	lnAddr, err := net.ResolveTCPAddr("tcp", LISTEN_PORT)
