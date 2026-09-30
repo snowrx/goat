@@ -19,8 +19,8 @@ const CONN_LIFETIME time.Duration = 4 * time.Hour
 const TFO_SIZE uint16 = 1200
 const TFO_WAIT_MS uint16 = 2
 
-const CLIENT_IS_LAN bool = true
-const LAN_BUF_SIZE int = 0x100000
+const CLIENT_RCVBUF_OVERRIDE int = 0x10_0000
+const REMOTE_RCVBUF_OVERRIDE int = 0
 
 func main() {
 	lnAddr, err := net.ResolveTCPAddr("tcp", LISTEN_PORT)
@@ -41,9 +41,8 @@ func main() {
 			log.Printf("Failed to accept connection: %s", err)
 			continue
 		}
-		if CLIENT_IS_LAN {
-			conn.SetReadBuffer(LAN_BUF_SIZE)
-			conn.SetWriteBuffer(LAN_BUF_SIZE)
+		if CLIENT_RCVBUF_OVERRIDE > 0 {
+			conn.SetReadBuffer(clamp(CLIENT_RCVBUF_OVERRIDE, 1<<16, 1<<30))
 		}
 		go handleConnection(conn)
 	}
@@ -82,6 +81,9 @@ func handleConnection(conn *net.TCPConn) {
 		return
 	}
 	defer proxyConn.Close()
+	if REMOTE_RCVBUF_OVERRIDE > 0 {
+		proxyConn.SetReadBuffer(clamp(REMOTE_RCVBUF_OVERRIDE, 1<<16, 1<<30))
+	}
 	opened := time.Now()
 
 	logger("OPEN", label)
@@ -138,4 +140,8 @@ func halfCloseWrite(conn net.Conn) error {
 
 func logger(subject string, message string) {
 	log.Printf("| %-10s | %s", subject, message)
+}
+
+func clamp(x, a, b int) int {
+	return max(a, min(b, x))
 }
