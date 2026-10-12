@@ -16,10 +16,10 @@ const DEBUG bool = true
 
 const LISTEN_PORT string = ":40960"
 const CONN_LIFETIME time.Duration = 4 * time.Hour
-const TFO_SIZE int = 1200
+const TFO_SIZE int = 1 << 12
 const TFO_WAIT_MS int = 4
 
-const LOCAL_RCVBUF_OVERRIDE int = 0x20000
+const LOCAL_RCVBUF_OVERRIDE int = 1 << 17
 const REMOTE_RCVBUF_OVERRIDE int = 0
 
 func main() {
