@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/netip"
 	"sync"
@@ -18,26 +17,30 @@ const LISTEN_PORT string = ":40960"
 const CONN_LIFETIME time.Duration = 4 * time.Hour
 const TFO_SIZE int = 1200
 const TFO_WAIT_MS int = 2
+const NODELAY bool = true
+const LINGER int = 10
 
 func main() {
 	lnAddr, err := net.ResolveTCPAddr("tcp", LISTEN_PORT)
 	if err != nil {
-		log.Fatalf("Failed to resolve listener endpoint: %s", err)
+		fmt.Printf("Failed to resolve listener endpoint: %s\n", err)
 	}
 
 	ln, err := tfo.ListenTCP("tcp", lnAddr)
 	if err != nil {
-		log.Fatalf("Failed to create listener: %s", err)
+		fmt.Printf("Failed to create listener: %s\n", err)
 	}
 	defer ln.Close()
-	log.Printf("Proxy started on %s", LISTEN_PORT)
+	fmt.Printf("Proxy started on %s\n", LISTEN_PORT)
 
 	for {
 		conn, err := ln.AcceptTCP()
 		if err != nil {
-			log.Printf("Failed to accept connection: %s", err)
+			fmt.Printf("Failed to accept connection: %s\n", err)
 			continue
 		}
+		conn.SetNoDelay(NODELAY)
+		conn.SetLinger(LINGER)
 		go handleConnection(conn)
 	}
 }
@@ -75,6 +78,8 @@ func handleConnection(conn *net.TCPConn) {
 		return
 	}
 	defer proxyConn.Close()
+	proxyConn.SetNoDelay(NODELAY)
+	proxyConn.SetLinger(LINGER)
 	opened := time.Now()
 
 	logger("OPEN", label)
@@ -89,6 +94,10 @@ func handleConnection(conn *net.TCPConn) {
 	conn.SetDeadline(time.Now().Add(CONN_LIFETIME))
 	relay(conn, proxyConn)
 	logger("CLOSE", label)
+	duration := time.Since(opened)
+	if DEBUG {
+		logger("DEBUG", fmt.Sprintf("total time: %7.2fs", duration.Seconds()))
+	}
 }
 
 func relay(client, upstream net.Conn) {
@@ -130,5 +139,5 @@ func halfCloseWrite(conn net.Conn) error {
 }
 
 func logger(subject string, message string) {
-	log.Printf("| %-10s | %s", subject, message)
+	fmt.Printf("%10s | %s\n", subject, message)
 }
