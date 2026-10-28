@@ -18,7 +18,6 @@ const CONN_LIFETIME time.Duration = 4 * time.Hour
 const TFO_SIZE int = 1200
 const TFO_WAIT_MS int = 2
 const NODELAY bool = true
-const LINGER int = 10
 
 func main() {
 	lnAddr, err := net.ResolveTCPAddr("tcp", LISTEN_PORT)
@@ -40,7 +39,6 @@ func main() {
 			continue
 		}
 		conn.SetNoDelay(NODELAY)
-		conn.SetLinger(LINGER)
 		go handleConnection(conn)
 	}
 }
@@ -79,7 +77,6 @@ func handleConnection(conn *net.TCPConn) {
 	}
 	defer proxyConn.Close()
 	proxyConn.SetNoDelay(NODELAY)
-	proxyConn.SetLinger(LINGER)
 	opened := time.Now()
 
 	logger("OPEN", label)
@@ -107,8 +104,7 @@ func relay(client, upstream net.Conn) {
 		// client -> upstream
 		if _, err := io.Copy(upstream, client); err != nil {
 			logger("ERROR", "copy error in upload")
-			client.Close()
-			upstream.Close()
+			abortConn(client, upstream)
 			return
 		}
 		if err := halfCloseWrite(upstream); err != nil {
@@ -119,8 +115,7 @@ func relay(client, upstream net.Conn) {
 		// upstream -> client
 		if _, err := io.Copy(client, upstream); err != nil {
 			logger("ERROR", "copy error in download")
-			upstream.Close()
-			client.Close()
+			abortConn(client, upstream)
 			return
 		}
 		if err := halfCloseWrite(client); err != nil {
@@ -136,6 +131,17 @@ func halfCloseWrite(conn net.Conn) error {
 		return tc.CloseWrite()
 	}
 	return nil
+}
+
+func abortConn(c1, c2 net.Conn) {
+	if tc, ok := c1.(*net.TCPConn); ok {
+		tc.SetLinger(0)
+	}
+	if tc, ok := c2.(*net.TCPConn); ok {
+		tc.SetLinger(0)
+	}
+	c1.Close()
+	c2.Close()
 }
 
 func logger(subject string, message string) {
