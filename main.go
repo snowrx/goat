@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"net/netip"
+	"runtime"
 	"sync"
 	"time"
 
@@ -19,7 +20,6 @@ const TFO_SIZE int = 1 << 15
 const TFO_WAIT_MS int = 4
 const NODELAY bool = true
 
-const DEFAULT_BUFFER_SIZE int64 = 1 << 20
 const BURST_LIMIT int64 = 1 << 25
 
 func main() {
@@ -133,6 +133,7 @@ func copy(dst, src net.Conn) (written int64, err error) {
 	// return io.Copy(dst, src)
 	var p int64
 	var e error
+	var r int64
 
 	for true {
 		p, e = io.CopyN(dst, src, BURST_LIMIT)
@@ -142,9 +143,10 @@ func copy(dst, src net.Conn) (written int64, err error) {
 		}
 
 		written += p
-		time.Sleep(time.Millisecond)
+		runtime.Gosched()
+		r += 1
 		if DEBUG {
-			logger("DEBUG", "rolled")
+			logger("DEBUG", fmt.Sprintf("Gosched: %d", r))
 		}
 	}
 
