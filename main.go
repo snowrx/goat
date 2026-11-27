@@ -5,7 +5,6 @@ import (
 	"io"
 	"net"
 	"net/netip"
-	"runtime"
 	"sync"
 	"time"
 
@@ -133,7 +132,6 @@ func copy(dst, src net.Conn) (written int64, err error) {
 	// return io.Copy(dst, src)
 	var p int64
 	var e error
-	var r int64
 
 	for true {
 		p, e = io.CopyN(dst, src, BURST_LIMIT)
@@ -143,16 +141,11 @@ func copy(dst, src net.Conn) (written int64, err error) {
 		}
 
 		written += p
-		runtime.Gosched()
-		r += 1
+		time.Sleep(time.Millisecond)
 	}
 
 	if e != nil && e != io.EOF {
 		err = e
-	}
-
-	if DEBUG {
-		logger("DEBUG", fmt.Sprintf("Gosched: %d", r))
 	}
 
 	return written, err
