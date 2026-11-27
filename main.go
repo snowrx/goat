@@ -145,13 +145,14 @@ func copy(dst, src net.Conn) (written int64, err error) {
 		written += p
 		runtime.Gosched()
 		r += 1
-		if DEBUG {
-			logger("DEBUG", fmt.Sprintf("Gosched: %d", r))
-		}
 	}
 
 	if e != nil && e != io.EOF {
 		err = e
+	}
+
+	if DEBUG {
+		logger("DEBUG", fmt.Sprintf("Gosched: %d", r))
 	}
 
 	return written, err
