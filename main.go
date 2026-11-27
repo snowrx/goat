@@ -15,9 +15,12 @@ const DEBUG bool = true
 
 const LISTEN_PORT string = ":40960"
 const CONN_LIFETIME time.Duration = 4 * time.Hour
-const TFO_SIZE int = 1200
-const TFO_WAIT_MS int = 2
+const TFO_SIZE int = 1 << 15
+const TFO_WAIT_MS int = 4
 const NODELAY bool = true
+
+const DEFAULT_BUFFER_SIZE int64 = 1 << 20
+const BURST_LIMIT int64 = 1 << 25
 
 func main() {
 	lnAddr, err := net.ResolveTCPAddr("tcp", LISTEN_PORT)
@@ -102,28 +105,54 @@ func relay(client, upstream net.Conn) {
 
 	wg.Go(func() {
 		// client -> upstream
-		if _, err := io.Copy(upstream, client); err != nil {
-			logger("ERROR", "copy error in upload")
+		if _, err := copy(upstream, client); err != nil {
+			logger("ERROR", fmt.Sprintf("copy error in upload: %s", err))
 			abortConn(client, upstream)
 			return
 		}
 		if err := halfCloseWrite(upstream); err != nil {
-			logger("ERROR", "close error in upload")
+			logger("ERROR", fmt.Sprintf("copy error in upload: %s", err))
 		}
 	})
 	wg.Go(func() {
 		// upstream -> client
-		if _, err := io.Copy(client, upstream); err != nil {
-			logger("ERROR", "copy error in download")
+		if _, err := copy(client, upstream); err != nil {
+			logger("ERROR", fmt.Sprintf("copy error in download: %s", err))
 			abortConn(client, upstream)
 			return
 		}
 		if err := halfCloseWrite(client); err != nil {
-			logger("ERROR", "close error in download")
+			logger("ERROR", fmt.Sprintf("copy error in download: %s", err))
 		}
 	})
 
 	wg.Wait()
+}
+
+func copy(dst, src net.Conn) (written int64, err error) {
+	// return io.Copy(dst, src)
+	var p int64
+	var e error
+
+	for true {
+		p, e = io.CopyN(dst, src, BURST_LIMIT)
+
+		if p == 0 || e != nil {
+			break
+		}
+
+		written += p
+		time.Sleep(time.Millisecond)
+		if DEBUG {
+			logger("DEBUG", "rolled")
+		}
+	}
+
+	if e != nil && e != io.EOF {
+		err = e
+	}
+
+	return written, err
 }
 
 func halfCloseWrite(conn net.Conn) error {
