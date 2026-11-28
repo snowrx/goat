@@ -11,15 +11,10 @@ import (
 	"github.com/database64128/tfo-go/v2"
 )
 
-const DEBUG bool = true
-
 const LISTEN_PORT string = ":40960"
 const CONN_LIFETIME time.Duration = 4 * time.Hour
 const TFO_SIZE int = 1 << 15
 const TFO_WAIT_MS int = 4
-const NODELAY bool = true
-
-const BURST_LIMIT int64 = 1 << 25
 
 func main() {
 	lnAddr, err := net.ResolveTCPAddr("tcp", LISTEN_PORT)
@@ -40,7 +35,6 @@ func main() {
 			fmt.Printf("Failed to accept connection: %s\n", err)
 			continue
 		}
-		conn.SetNoDelay(NODELAY)
 		go handleConnection(conn)
 	}
 }
@@ -78,25 +72,22 @@ func handleConnection(conn *net.TCPConn) {
 		return
 	}
 	defer proxyConn.Close()
-	proxyConn.SetNoDelay(NODELAY)
 	opened := time.Now()
 
 	logger("OPEN", label)
-	if DEBUG {
-		total_time := opened.Sub(accepted).Microseconds()
-		resolve_time := parsed.Sub(accepted).Microseconds()
-		receive_time := received.Sub(parsed).Microseconds()
-		open_time := opened.Sub(received).Microseconds()
-		logger("DEBUG", fmt.Sprintf("time: %7d us (res: %3d / recv: %4d / open: %7d) / data: %5d B", total_time, resolve_time, receive_time, open_time, n))
-	}
+	total_time := opened.Sub(accepted).Microseconds()
+	resolve_time := parsed.Sub(accepted).Microseconds()
+	receive_time := received.Sub(parsed).Microseconds()
+	open_time := opened.Sub(received).Microseconds()
+	logger("DEBUG", fmt.Sprintf("time: %7d us (res: %3d / recv: %4d / open: %7d) / data: %5d B", total_time, resolve_time, receive_time, open_time, n))
+
 	proxyConn.SetDeadline(time.Now().Add(CONN_LIFETIME))
 	conn.SetDeadline(time.Now().Add(CONN_LIFETIME))
 	relay(conn, proxyConn)
 	logger("CLOSE", label)
 	duration := time.Since(opened)
-	if DEBUG {
-		logger("DEBUG", fmt.Sprintf("total time: %7.2fs", duration.Seconds()))
-	}
+
+	logger("DEBUG", fmt.Sprintf("total time: %7.2fs", duration.Seconds()))
 }
 
 func relay(client, upstream net.Conn) {
@@ -104,7 +95,7 @@ func relay(client, upstream net.Conn) {
 
 	wg.Go(func() {
 		// client -> upstream
-		if _, err := copy(upstream, client); err != nil {
+		if _, err := io.Copy(upstream, client); err != nil {
 			logger("ERROR", fmt.Sprintf("copy error in upload: %s", err))
 			abortConn(client, upstream)
 			return
@@ -115,7 +106,7 @@ func relay(client, upstream net.Conn) {
 	})
 	wg.Go(func() {
 		// upstream -> client
-		if _, err := copy(client, upstream); err != nil {
+		if _, err := io.Copy(client, upstream); err != nil {
 			logger("ERROR", fmt.Sprintf("copy error in download: %s", err))
 			abortConn(client, upstream)
 			return
@@ -126,29 +117,6 @@ func relay(client, upstream net.Conn) {
 	})
 
 	wg.Wait()
-}
-
-func copy(dst, src net.Conn) (written int64, err error) {
-	// return io.Copy(dst, src)
-	var p int64
-	var e error
-
-	for true {
-		p, e = io.CopyN(dst, src, BURST_LIMIT)
-
-		if p == 0 || e != nil {
-			break
-		}
-
-		written += p
-		time.Sleep(time.Millisecond)
-	}
-
-	if e != nil && e != io.EOF {
-		err = e
-	}
-
-	return written, err
 }
 
 func halfCloseWrite(conn net.Conn) error {
